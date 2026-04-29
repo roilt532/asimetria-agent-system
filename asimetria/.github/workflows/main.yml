@@ -2,16 +2,15 @@ name: Asimetria — Alertas en Tiempo Real
 
 on:
   schedule:
-    # Cada 2 horas
     - cron: '0 */2 * * *'
   workflow_dispatch:
     inputs:
       lookback_hours:
-        description: 'Horas hacia atrás para buscar noticias'
+        description: 'Horas hacia atras para buscar noticias'
         required: false
         default: '3'
       min_confidence:
-        description: 'Umbral mínimo de confianza (0.0 - 1.0)'
+        description: 'Umbral minimo de confianza (0.0 - 1.0)'
         required: false
         default: '0.75'
 
@@ -21,28 +20,30 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
-    # NOTA: Si el contenido de asimetria/ está en la RAÍZ de tu repo
-    # (es decir, requirements.txt está en la raíz), elimina la línea
-    # "working-directory" de cada step "run" de abajo.
-    defaults:
-      run:
-        working-directory: ./asimetria
-
     steps:
-      - name: Descargar el código
+      - name: Descargar el codigo
         uses: actions/checkout@v4
 
       - name: Configurar Python 3.11
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-          cache: 'pip'
-          cache-dependency-path: asimetria/requirements.txt
 
-      - name: Instalar librerías
-        run: pip install -r requirements.txt
+      - name: Instalar librerias
+        run: |
+          if [ -f "asimetria/requirements.txt" ]; then
+            echo "Codigo en subcarpeta asimetria/"
+            pip install -r asimetria/requirements.txt
+          elif [ -f "requirements.txt" ]; then
+            echo "Codigo en la raiz del repositorio"
+            pip install -r requirements.txt
+          else
+            echo "No se encontro requirements.txt. Estructura actual:"
+            find . -maxdepth 3 -name "*.txt" -o -name "*.py" | head -30
+            exit 1
+          fi
 
-      - name: Ejecutar Agentes de Asimetría
+      - name: Ejecutar Agentes de Asimetria
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
@@ -52,4 +53,9 @@ jobs:
           LOOKBACK_HOURS: ${{ github.event.inputs.lookback_hours || '3' }}
           SEND_SUMMARY: 'false'
           CUSTOM_BLOCKLIST: ${{ vars.CUSTOM_BLOCKLIST || '' }}
-        run: python main.py
+        run: |
+          if [ -f "asimetria/main.py" ]; then
+            cd asimetria && python main.py
+          else
+            python main.py
+          fi
