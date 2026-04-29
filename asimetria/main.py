@@ -22,7 +22,7 @@ def run_pipeline() -> None:
     logger.info("INICIANDO PIPELINE: ASIMETRIA")
     logger.info(f"Ventana de busqueda : {settings.LOOKBACK_HOURS}h")
     logger.info(f"Confianza minima    : {settings.MIN_CONFIDENCE}")
-    logger.info(f"Modelo LLM          : {settings.OPENAI_MODEL}")
+    logger.info(f"Modelo LLM          : {settings.GEMINI_MODEL}")
     logger.info(SEPARATOR)
 
     scraper = ScrapingAgent(settings)

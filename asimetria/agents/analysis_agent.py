@@ -1,6 +1,7 @@
 import json
 import logging
-from openai import OpenAI
+from google import genai
+from google.genai import types
 
 from agents.models import NewsItem, AnalysisResult
 from config.settings import Settings
@@ -43,8 +44,8 @@ CONTEXTO DE MERCADO ACTUAL:
 
 class AnalysisAgent:
     def __init__(self, settings: Settings):
-        self.client = OpenAI(api_key=settings.OPENAI_API_KEY)
-        self.model = settings.OPENAI_MODEL
+        self.client = genai.Client(api_key=settings.GEMINI_API_KEY)
+        self.model = settings.GEMINI_MODEL
 
     def analyze(self, item: NewsItem, market_context: dict = None) -> AnalysisResult:
         """Analiza una noticia y determina si es una oportunidad asimétrica."""
@@ -62,18 +63,18 @@ class AnalysisAgent:
         )
 
         try:
-            response = self.client.chat.completions.create(
+            response = self.client.models.generate_content(
                 model=self.model,
-                messages=[
-                    {"role": "system", "content": ANALYSIS_SYSTEM_PROMPT},
-                    {"role": "user", "content": user_msg},
-                ],
-                response_format={"type": "json_object"},
-                temperature=0.1,
-                max_tokens=400,
+                contents=user_msg,
+                config=types.GenerateContentConfig(
+                    system_instruction=ANALYSIS_SYSTEM_PROMPT,
+                    response_mime_type="application/json",
+                    temperature=0.1,
+                    max_output_tokens=400,
+                ),
             )
 
-            data = json.loads(response.choices[0].message.content)
+            data = json.loads(response.text)
 
             return AnalysisResult(
                 news_item=item,

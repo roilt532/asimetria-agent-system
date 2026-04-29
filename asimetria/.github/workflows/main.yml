@@ -46,11 +46,11 @@ jobs:
       - name: Ejecutar Pipeline Asimetria
         env:
           # Secrets (Settings > Secrets and variables > Actions > Secrets)
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           # Variables de configuración (Settings > Secrets and variables > Actions > Variables)
-          OPENAI_MODEL: ${{ vars.OPENAI_MODEL || 'gpt-4o-mini' }}
+          GEMINI_MODEL: ${{ vars.GEMINI_MODEL || 'gemini-2.5-pro' }}
           MIN_CONFIDENCE: ${{ github.event.inputs.min_confidence || vars.MIN_CONFIDENCE || '0.75' }}
           LOOKBACK_HOURS: ${{ github.event.inputs.lookback_hours || vars.LOOKBACK_HOURS || '2' }}
           SEND_SUMMARY: ${{ vars.SEND_SUMMARY || 'false' }}

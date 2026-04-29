@@ -7,12 +7,12 @@ load_dotenv()
 class Settings:
     def __init__(self) -> None:
         # ---- Credenciales requeridas ----
-        self.OPENAI_API_KEY: str = os.environ["OPENAI_API_KEY"]
+        self.GEMINI_API_KEY: str = os.environ["GEMINI_API_KEY"]
         self.TELEGRAM_BOT_TOKEN: str = os.environ["TELEGRAM_BOT_TOKEN"]
         self.TELEGRAM_CHAT_ID: str = os.environ["TELEGRAM_CHAT_ID"]
 
         # ---- Modelo LLM ----
-        self.OPENAI_MODEL: str = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+        self.GEMINI_MODEL: str = os.getenv("GEMINI_MODEL", "gemini-2.5-pro")
 
         # ---- Comportamiento del pipeline ----
         self.MIN_CONFIDENCE: float = float(os.getenv("MIN_CONFIDENCE", "0.75"))

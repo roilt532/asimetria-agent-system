@@ -1,6 +1,7 @@
 import json
 import logging
-from openai import OpenAI
+from google import genai
+from google.genai import types
 
 from agents.models import AnalysisResult, FilterDecision
 from config.settings import Settings
@@ -65,8 +66,8 @@ TITULAR: {title}
 
 class EthicalFilterAgent:
     def __init__(self, settings: Settings):
-        self.client = OpenAI(api_key=settings.OPENAI_API_KEY)
-        self.model = settings.OPENAI_MODEL
+        self.client = genai.Client(api_key=settings.GEMINI_API_KEY)
+        self.model = settings.GEMINI_MODEL
         self.blocklist = BASE_BLOCKLIST | {e.lower() for e in settings.CUSTOM_BLOCKLIST}
 
     def passes_filter(self, result: AnalysisResult) -> FilterDecision:
@@ -101,18 +102,18 @@ class EthicalFilterAgent:
                 title=result.news_item.title,
             )
 
-            response = self.client.chat.completions.create(
+            response = self.client.models.generate_content(
                 model=self.model,
-                messages=[
-                    {"role": "system", "content": FILTER_SYSTEM_PROMPT},
-                    {"role": "user", "content": user_msg},
-                ],
-                response_format={"type": "json_object"},
-                temperature=0.0,
-                max_tokens=250,
+                contents=user_msg,
+                config=types.GenerateContentConfig(
+                    system_instruction=FILTER_SYSTEM_PROMPT,
+                    response_mime_type="application/json",
+                    temperature=0.0,
+                    max_output_tokens=250,
+                ),
             )
 
-            data = json.loads(response.choices[0].message.content)
+            data = json.loads(response.text)
 
             return FilterDecision(
                 passes=bool(data.get("passes_filter", True)),

@@ -2,7 +2,8 @@ import json
 import logging
 from pathlib import Path
 from datetime import datetime, timezone
-from openai import OpenAI
+from google import genai
+from google.genai import types
 
 from agents.models import AnalysisResult
 from config.settings import Settings
@@ -47,8 +48,8 @@ Valores permitidos para market_sentiment: alcista, bajista, mixto, neutral."""
 
 class SummaryAgent:
     def __init__(self, settings: Settings):
-        self.client = OpenAI(api_key=settings.OPENAI_API_KEY)
-        self.model = settings.OPENAI_MODEL
+        self.client = genai.Client(api_key=settings.GEMINI_API_KEY)
+        self.model = settings.GEMINI_MODEL
 
     def append_opportunity(self, result: AnalysisResult) -> None:
         """Añade una oportunidad al log acumulado del día."""
@@ -97,17 +98,17 @@ class SummaryAgent:
         )
 
         try:
-            response = self.client.chat.completions.create(
+            response = self.client.models.generate_content(
                 model=self.model,
-                messages=[
-                    {"role": "system", "content": RANKING_SYSTEM_PROMPT},
-                    {"role": "user", "content": prompt},
-                ],
-                response_format={"type": "json_object"},
-                temperature=0.2,
-                max_tokens=900,
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    system_instruction=RANKING_SYSTEM_PROMPT,
+                    response_mime_type="application/json",
+                    temperature=0.2,
+                    max_output_tokens=900,
+                ),
             )
-            data = json.loads(response.choices[0].message.content)
+            data = json.loads(response.text)
             data["date"] = log.get("date", "N/A")
             return data
         except Exception as e:
