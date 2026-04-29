@@ -1,0 +1,47 @@
+name: Asimetria — Alertas en Tiempo Real
+
+on:
+  schedule:
+    # Cada 2 horas
+    - cron: '0 */2 * * *'
+  workflow_dispatch:
+    inputs:
+      lookback_hours:
+        description: 'Horas hacia atras para buscar noticias'
+        required: false
+        default: '3'
+      min_confidence:
+        description: 'Umbral minimo de confianza (0.0 - 1.0)'
+        required: false
+        default: '0.75'
+
+jobs:
+  run-pipeline:
+    name: Alertas en Tiempo Real
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Descargar el codigo
+        uses: actions/checkout@v4
+
+      - name: Configurar Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Instalar librerias
+        run: pip install -r asimetria/requirements.txt
+
+      - name: Ejecutar Agentes de Asimetria
+        working-directory: asimetria
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          GEMINI_MODEL: ${{ vars.GEMINI_MODEL || 'gemini-2.5-pro' }}
+          MIN_CONFIDENCE: ${{ github.event.inputs.min_confidence || vars.MIN_CONFIDENCE || '0.75' }}
+          LOOKBACK_HOURS: ${{ github.event.inputs.lookback_hours || '3' }}
+          SEND_SUMMARY: 'false'
+          CUSTOM_BLOCKLIST: ${{ vars.CUSTOM_BLOCKLIST || '' }}
+        run: python main.py

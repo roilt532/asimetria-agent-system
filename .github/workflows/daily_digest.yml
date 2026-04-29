@@ -1,0 +1,42 @@
+name: Asimetria — Digest Diario
+
+on:
+  schedule:
+    # Cada dia a las 07:30 UTC (09:30 Espana peninsular)
+    - cron: '30 7 * * *'
+  workflow_dispatch:
+    inputs:
+      lookback_hours:
+        description: 'Horas de noticias a analizar'
+        required: false
+        default: '24'
+
+jobs:
+  daily-digest:
+    name: Generar Digest Diario y Enviar a Telegram
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Descargar el codigo
+        uses: actions/checkout@v4
+
+      - name: Configurar Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Instalar librerias
+        run: pip install -r asimetria/requirements.txt
+
+      - name: Ejecutar Digest Diario
+        working-directory: asimetria
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          GEMINI_MODEL: ${{ vars.GEMINI_MODEL || 'gemini-2.5-pro' }}
+          LOOKBACK_HOURS: ${{ github.event.inputs.lookback_hours || '24' }}
+          MIN_CONFIDENCE: '0.65'
+          CUSTOM_BLOCKLIST: ${{ vars.CUSTOM_BLOCKLIST || '' }}
+        run: python daily_digest.py
