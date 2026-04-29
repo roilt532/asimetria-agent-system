@@ -1,0 +1,50 @@
+name: Asimetria Pipeline
+
+on:
+  schedule:
+    # Ejecuta cada 30 minutos (ajusta el cron según tu necesidad)
+    - cron: '*/30 * * * *'
+  # Permite lanzarlo manualmente desde la pestaña Actions de GitHub
+  workflow_dispatch:
+    inputs:
+      lookback_hours:
+        description: 'Horas hacia atrás para buscar noticias'
+        required: false
+        default: '2'
+      min_confidence:
+        description: 'Umbral mínimo de confianza (0.0 - 1.0)'
+        required: false
+        default: '0.75'
+
+jobs:
+  run-pipeline:
+    name: Ejecutar Pipeline Asimetria
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout del repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Instalar dependencias
+        run: pip install -r requirements.txt
+
+      - name: Ejecutar Pipeline Asimetria
+        env:
+          # Secrets (definir en Settings > Secrets and variables > Actions > Secrets)
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          # Variables de configuración (Settings > Secrets and variables > Actions > Variables)
+          OPENAI_MODEL: ${{ vars.OPENAI_MODEL || 'gpt-4o-mini' }}
+          MIN_CONFIDENCE: ${{ github.event.inputs.min_confidence || vars.MIN_CONFIDENCE || '0.75' }}
+          LOOKBACK_HOURS: ${{ github.event.inputs.lookback_hours || vars.LOOKBACK_HOURS || '2' }}
+          SEND_SUMMARY: ${{ vars.SEND_SUMMARY || 'false' }}
+          CUSTOM_BLOCKLIST: ${{ vars.CUSTOM_BLOCKLIST || '' }}
+        run: python main.py
