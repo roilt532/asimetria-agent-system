@@ -2,7 +2,7 @@ name: Asimetria — Alertas en Tiempo Real
 
 on:
   schedule:
-    # Cada 2 horas: 8 ejecuciones diarias (equilibrio entre frescura y coste de API)
+    # Cada 2 horas
     - cron: '0 */2 * * *'
   workflow_dispatch:
     inputs:
@@ -21,8 +21,15 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
+    # NOTA: Si el contenido de asimetria/ está en la RAÍZ de tu repo
+    # (es decir, requirements.txt está en la raíz), elimina la línea
+    # "working-directory" de cada step "run" de abajo.
+    defaults:
+      run:
+        working-directory: ./asimetria
+
     steps:
-      - name: Checkout del repositorio
+      - name: Descargar el código
         uses: actions/checkout@v4
 
       - name: Configurar Python 3.11
@@ -30,17 +37,16 @@ jobs:
         with:
           python-version: '3.11'
           cache: 'pip'
+          cache-dependency-path: asimetria/requirements.txt
 
-      - name: Instalar dependencias
+      - name: Instalar librerías
         run: pip install -r requirements.txt
 
-      - name: Ejecutar Pipeline de Alertas
+      - name: Ejecutar Agentes de Asimetría
         env:
-          # --- Secrets (Settings > Secrets > Actions) ---
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-          # --- Configuración ---
           GEMINI_MODEL: ${{ vars.GEMINI_MODEL || 'gemini-2.5-pro' }}
           MIN_CONFIDENCE: ${{ github.event.inputs.min_confidence || vars.MIN_CONFIDENCE || '0.75' }}
           LOOKBACK_HOURS: ${{ github.event.inputs.lookback_hours || '3' }}

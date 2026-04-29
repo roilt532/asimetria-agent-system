@@ -2,13 +2,12 @@ name: Asimetria — Digest Diario
 
 on:
   schedule:
-    # Cada día a las 07:30 UTC (09:30 España peninsular, antes de abrir mercados europeos)
+    # Cada día a las 07:30 UTC (09:30 España peninsular)
     - cron: '30 7 * * *'
-  # Lanzar manualmente desde Actions → "Run workflow"
   workflow_dispatch:
     inputs:
       lookback_hours:
-        description: 'Horas de noticias a analizar (por defecto 24)'
+        description: 'Horas de noticias a analizar (default 24)'
         required: false
         default: '24'
 
@@ -16,10 +15,17 @@ jobs:
   daily-digest:
     name: Generar Digest Diario y Enviar a Telegram
     runs-on: ubuntu-latest
-    timeout-minutes: 20       # análisis de 24h puede tardar más
+    timeout-minutes: 20
+
+    # NOTA: Si el contenido de asimetria/ está en la RAÍZ de tu repo
+    # (es decir, requirements.txt está en la raíz), elimina la línea
+    # "working-directory" de cada step "run" de abajo.
+    defaults:
+      run:
+        working-directory: ./asimetria
 
     steps:
-      - name: Checkout del repositorio
+      - name: Descargar el código
         uses: actions/checkout@v4
 
       - name: Configurar Python 3.11
@@ -27,17 +33,16 @@ jobs:
         with:
           python-version: '3.11'
           cache: 'pip'
+          cache-dependency-path: asimetria/requirements.txt
 
-      - name: Instalar dependencias
+      - name: Instalar librerías
         run: pip install -r requirements.txt
 
       - name: Ejecutar Digest Diario
         env:
-          # --- Secrets (Settings > Secrets > Actions) ---
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-          # --- Configuración ---
           GEMINI_MODEL: ${{ vars.GEMINI_MODEL || 'gemini-2.5-pro' }}
           LOOKBACK_HOURS: ${{ github.event.inputs.lookback_hours || '24' }}
           MIN_CONFIDENCE: '0.65'
