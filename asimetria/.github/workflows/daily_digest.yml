@@ -1,25 +1,22 @@
-name: Asimetria — Alertas en Tiempo Real
+name: Asimetria — Digest Diario
 
 on:
   schedule:
-    # Cada 2 horas: 8 ejecuciones diarias (equilibrio entre frescura y coste de API)
-    - cron: '0 */2 * * *'
+    # Cada día a las 07:30 UTC (09:30 España peninsular, antes de abrir mercados europeos)
+    - cron: '30 7 * * *'
+  # Lanzar manualmente desde Actions → "Run workflow"
   workflow_dispatch:
     inputs:
       lookback_hours:
-        description: 'Horas hacia atrás para buscar noticias'
+        description: 'Horas de noticias a analizar (por defecto 24)'
         required: false
-        default: '3'
-      min_confidence:
-        description: 'Umbral mínimo de confianza (0.0 - 1.0)'
-        required: false
-        default: '0.75'
+        default: '24'
 
 jobs:
-  run-pipeline:
-    name: Alertas en Tiempo Real
+  daily-digest:
+    name: Generar Digest Diario y Enviar a Telegram
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20       # análisis de 24h puede tardar más
 
     steps:
       - name: Checkout del repositorio
@@ -34,7 +31,7 @@ jobs:
       - name: Instalar dependencias
         run: pip install -r requirements.txt
 
-      - name: Ejecutar Pipeline de Alertas
+      - name: Ejecutar Digest Diario
         env:
           # --- Secrets (Settings > Secrets > Actions) ---
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
@@ -42,8 +39,7 @@ jobs:
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           # --- Configuración ---
           GEMINI_MODEL: ${{ vars.GEMINI_MODEL || 'gemini-2.5-pro' }}
-          MIN_CONFIDENCE: ${{ github.event.inputs.min_confidence || vars.MIN_CONFIDENCE || '0.75' }}
-          LOOKBACK_HOURS: ${{ github.event.inputs.lookback_hours || '3' }}
-          SEND_SUMMARY: 'false'
+          LOOKBACK_HOURS: ${{ github.event.inputs.lookback_hours || '24' }}
+          MIN_CONFIDENCE: '0.65'
           CUSTOM_BLOCKLIST: ${{ vars.CUSTOM_BLOCKLIST || '' }}
-        run: python main.py
+        run: python daily_digest.py

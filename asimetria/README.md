@@ -1,7 +1,6 @@
 # Asimetría — Sistema Multi-Agente de Detección de Oportunidades Financieras
 
-Sistema autónomo de scraping, análisis con IA y filtrado ético de noticias financieras y crypto.
-Ejecuta cada 30 minutos vía GitHub Actions y envía alertas a Telegram solo con las mejores señales.
+Sistema autónomo de scraping, análisis con IA (Gemini 2.5 Pro) y filtrado ético de noticias financieras y crypto. Se ejecuta automáticamente en GitHub Actions y te envía alertas y un resumen diario por Telegram.
 
 ---
 
@@ -11,182 +10,174 @@ Ejecuta cada 30 minutos vía GitHub Actions y envía alertas a Telegram solo con
 asimetria/
 ├── .github/
 │   └── workflows/
-│       └── main.yml          # Cron job automático (GitHub Actions)
+│       ├── daily_digest.yml    # Digest diario a las 07:30 UTC (PRINCIPAL)
+│       └── main.yml            # Alertas en tiempo real cada 2 horas (OPCIONAL)
 ├── agents/
-│   ├── __init__.py
-│   ├── models.py             # Dataclasses: NewsItem, AnalysisResult, FilterDecision
-│   ├── scraping_agent.py     # RSS feeds + yfinance (sin API key)
-│   ├── analysis_agent.py     # GPT-4o-mini: ¿es una señal asimétrica?
-│   ├── filter_agent.py       # Filtro ético (lista negra + LLM)
-│   └── alert_agent.py        # Envío de alertas vía Telegram Bot API
+│   ├── models.py               # Dataclasses: NewsItem, AnalysisResult, FilterDecision
+│   ├── scraping_agent.py       # 9 feeds RSS + yfinance (sin API key)
+│   ├── analysis_agent.py       # Gemini: ¿es una señal asimétrica?
+│   ├── filter_agent.py         # Filtro ético (lista negra + LLM)
+│   ├── alert_agent.py          # Envío a Telegram Bot API
+│   └── summary_agent.py        # Ranking y resumen consolidado
 ├── config/
-│   ├── __init__.py
-│   └── settings.py           # Carga variables de entorno
-├── main.py                   # Orquestador principal del pipeline
+│   └── settings.py             # Variables de entorno
+├── main.py                     # Pipeline de alertas en tiempo real
+├── daily_digest.py             # Script del digest diario (autocontenido)
 ├── requirements.txt
-├── .env.example              # Plantilla de variables de entorno
+├── .env.example
 └── README.md
 ```
 
 ---
 
-## Flujo del Pipeline
+## Cómo funciona (flujo)
 
 ```
-RSS Feeds (9 fuentes) ──┐
-                         ├──► ScrapingAgent ──► [NewsItem list]
-yfinance (BTC, ETH...) ─┘
-                                     │
-                                     ▼
-                              AnalysisAgent (GPT-4o-mini)
-                          ¿Es una señal asimétrica temprana?
-                              confidence >= MIN_CONFIDENCE?
-                                     │ Sí
-                                     ▼
-                           EthicalFilterAgent
-                        (lista negra + evaluación LLM)
-                                     │ Pasa
-                                     ▼
-                             AlertAgent → Telegram
+                    ┌─ daily_digest.py (1x día, 07:30 UTC) ─────────────────────┐
+                    │                                                             │
+  RSS Feeds (9) ────┤  ScrapingAgent (24h)                                      │
+  yfinance (BTC..)  │       │                                                    │
+                    │       ▼                                                    │
+                    │  AnalysisAgent (Gemini 2.5 Pro)                           │
+                    │  ¿Es señal asimétrica? confidence >= 0.65?                │
+                    │       │ Sí                                                 │
+                    │       ▼                                                    │
+                    │  EthicalFilterAgent (lista negra + LLM)                   │
+                    │       │ Pasa                                               │
+                    │       ▼                                                    │
+                    │  SummaryAgent → Ranking Gemini → 1 mensaje Telegram       │
+                    └────────────────────────────────────────────────────────────┘
+
+                    ┌─ main.py (8x día, cada 2h) ─────────┐
+                    │  Igual que arriba pero:               │
+                    │  - Ventana: últimas 3 horas           │
+                    │  - Alerta individual por señal         │
+                    │  - confidence >= 0.75                  │
+                    └──────────────────────────────────────┘
 ```
 
 ---
 
-## Configuración Rápida
+## Setup en GitHub (paso a paso)
 
-### 1. Clonar y preparar entorno
-
-```bash
-git clone https://github.com/TU_USUARIO/asimetria.git
-cd asimetria
-python -m venv venv
-source venv/bin/activate        # Windows: venv\Scripts\activate
-pip install -r requirements.txt
-```
-
-### 2. Configurar variables de entorno
+### Paso 1 — Subir el código a GitHub
 
 ```bash
-cp .env.example .env
+git init
+git add .
+git commit -m "feat: sistema asimetria"
+git remote add origin https://github.com/TU_USUARIO/asimetria.git
+git push -u origin main
 ```
 
-Edita `.env` con tus credenciales reales (ver sección "Obtener API Keys" abajo).
+### Paso 2 — Añadir los 3 Secrets obligatorios
 
-### 3. Ejecutar localmente
+En tu repositorio → **Settings → Secrets and variables → Actions → Secrets → New repository secret**
 
-```bash
-python main.py
-```
+| Secret | Valor | Dónde obtenerlo |
+|--------|-------|-----------------|
+| `GEMINI_API_KEY` | `AIzaSy...` | https://aistudio.google.com/apikey (gratis) |
+| `TELEGRAM_BOT_TOKEN` | `123456:AABBcc...` | @BotFather en Telegram → /newbot |
+| `TELEGRAM_CHAT_ID` | `123456789` | @userinfobot en Telegram |
+
+### Paso 3 — Activar los workflows
+
+- Ve a **Actions** en tu repositorio
+- Si aparece un banner "Workflows disabled", haz clic en **"Enable workflows"**
+- Listo. El digest se enviará cada día a las 07:30 UTC (09:30 España)
+
+### Paso 4 — Probar manualmente (recomendado)
+
+Antes de esperar al primer cron, prueba que todo funciona:
+1. Ve a **Actions → Asimetria — Digest Diario**
+2. Clic en **"Run workflow"** → **"Run workflow"**
+3. Espera 3-5 minutos
+4. Comprueba que llega el mensaje a Telegram
 
 ---
 
 ## Obtener las API Keys
 
-### OpenAI API Key
-1. Regístrate en [https://platform.openai.com](https://platform.openai.com)
-2. Ve a **API Keys** → **Create new secret key**
-3. Copia la key (empieza con `sk-...`) y pégala en `OPENAI_API_KEY`
-4. Asegúrate de tener créditos disponibles en tu cuenta
+### GEMINI_API_KEY (Google AI Studio — GRATIS)
+1. Ve a https://aistudio.google.com/apikey
+2. Inicia sesión con tu cuenta Google
+3. Clic en **"Create API key"**
+4. Copia la key (empieza con `AIza...`)
+5. Pégala como Secret `GEMINI_API_KEY` en GitHub
 
-### Telegram Bot Token
-1. Abre Telegram y busca **@BotFather**
-2. Envía el comando `/newbot`
-3. Sigue las instrucciones: elige nombre y username para tu bot
-4. BotFather te dará un token como `123456789:AABBCCDDEEFFaabbccddeeff`
-5. Pégalo en `TELEGRAM_BOT_TOKEN`
+### TELEGRAM_BOT_TOKEN
+1. Abre Telegram → busca **@BotFather**
+2. Envía `/newbot` y sigue las instrucciones
+3. Elige un nombre y username para tu bot
+4. BotFather te dará: `123456789:AABBCCDDEEFFaabbcc...`
+5. Pégalo como Secret `TELEGRAM_BOT_TOKEN`
 
-### Telegram Chat ID
-1. Busca **@userinfobot** en Telegram y envía cualquier mensaje
-2. Te responderá con tu Chat ID (número)
-3. Alternativamente: inicia una conversación con tu bot y visita:
-   `https://api.telegram.org/bot<TU_TOKEN>/getUpdates`
-4. Copia el valor de `"id"` dentro de `"chat"` y pégalo en `TELEGRAM_CHAT_ID`
+### TELEGRAM_CHAT_ID
+1. Busca **@userinfobot** en Telegram
+2. Envía cualquier mensaje
+3. Te responde con tu ID (un número como `123456789`)
+4. Pégalo como Secret `TELEGRAM_CHAT_ID`
+> Si quieres enviar a un grupo: añade el bot al grupo, envía un mensaje mencionándolo,
+> y usa `https://api.telegram.org/bot<TOKEN>/getUpdates` para ver el chat_id del grupo (será negativo).
 
 ---
 
-## Despliegue en GitHub Actions
+## Configuración avanzada (Variables opcionales)
 
-### Paso 1: Subir el repositorio a GitHub
+En **Settings → Secrets and variables → Actions → Variables**:
 
-```bash
-git init
-git add .
-git commit -m "feat: sistema asimetria inicial"
-git remote add origin https://github.com/TU_USUARIO/asimetria.git
-git push -u origin main
-```
-
-### Paso 2: Configurar Secrets en GitHub
-
-En tu repositorio → **Settings** → **Secrets and variables** → **Actions** → **New repository secret**:
-
-| Secret | Valor |
-|--------|-------|
-| `OPENAI_API_KEY` | Tu key de OpenAI |
-| `TELEGRAM_BOT_TOKEN` | Token de tu bot de Telegram |
-| `TELEGRAM_CHAT_ID` | Tu Chat ID de Telegram |
-
-### Paso 3: Configurar Variables (opcionales)
-
-En la misma sección, pestaña **Variables**:
-
-| Variable | Valor por defecto | Descripción |
-|----------|-------------------|-------------|
-| `MIN_CONFIDENCE` | `0.75` | Umbral mínimo de confianza (0.0–1.0) |
-| `LOOKBACK_HOURS` | `2` | Horas hacia atrás para buscar noticias |
-| `SEND_SUMMARY` | `false` | Enviar resumen al final de cada run |
+| Variable | Por defecto | Descripción |
+|----------|-------------|-------------|
+| `GEMINI_MODEL` | `gemini-2.5-pro` | Modelo de Gemini a usar |
+| `MIN_CONFIDENCE` | `0.75` | Umbral alertas en tiempo real |
 | `CUSTOM_BLOCKLIST` | _(vacío)_ | Entidades extra a excluir (separadas por comas) |
 
-### Paso 4: Activar el workflow
+---
 
-El workflow se activa automáticamente cada 30 minutos.
-También puedes ejecutarlo manualmente desde **Actions** → **Asimetria Pipeline** → **Run workflow**.
+## Ejecución local
+
+```bash
+cp .env.example .env
+# Edita .env con tus keys reales
+pip install -r requirements.txt
+
+# Digest diario (24h de noticias):
+python daily_digest.py
+
+# Pipeline de alertas en tiempo real:
+python main.py
+```
 
 ---
 
-## Fuentes de Datos (sin API key)
+## Fuentes de datos (sin API key)
 
-| Fuente | Tipo | Contenido |
-|--------|------|-----------|
-| Yahoo Finance | RSS | Top noticias financieras |
-| Yahoo Finance BTC | RSS | Noticias específicas de Bitcoin |
-| CoinDesk | RSS | Noticias de criptomonedas |
-| CoinTelegraph | RSS | Análisis y noticias crypto |
-| Bitcoinist | RSS | Noticias y análisis Bitcoin |
-| CryptoNews | RSS | Noticias del mercado crypto |
-| Reuters Business | RSS | Noticias financieras globales |
-| CNBC Markets | RSS | Mercados y economía |
-| MarketWatch | RSS | Análisis de mercados |
-| yfinance | Python lib | Precios en tiempo real (BTC, ETH, SPY, QQQ, GLD) |
+| Fuente | Contenido |
+|--------|-----------|
+| Yahoo Finance | Top noticias financieras + Bitcoin |
+| CoinDesk | Noticias crypto |
+| CoinTelegraph | Análisis crypto |
+| Bitcoinist | Noticias Bitcoin |
+| CryptoNews | Mercado crypto |
+| Reuters Business | Noticias financieras globales |
+| CNBC Markets | Mercados y economía |
+| MarketWatch | Análisis de mercados |
+| yfinance | Precios en tiempo real (BTC, ETH, SPY, QQQ, GLD) |
 
 ---
 
 ## Personalización
 
-### Añadir más tickers monitoreados
-Edita `MONITORED_TICKERS` en `config/settings.py`:
-```python
-MONITORED_TICKERS: list = ["BTC-USD", "ETH-USD", "SOL-USD", "AAPL", "TSLA"]
+### Cambiar horario del digest
+Edita `.github/workflows/daily_digest.yml`:
+```yaml
+- cron: '30 7 * * *'   # 07:30 UTC — actual
+- cron: '0 6 * * *'    # 06:00 UTC
+- cron: '0 17 * * *'   # 17:00 UTC (antes del cierre de NY)
 ```
 
-### Añadir entidades a la lista de exclusión ética
-En tu `.env`:
+### Añadir entidades a la lista negra
+En `.env` o como Variable en GitHub Actions:
 ```
 CUSTOM_BLOCKLIST=empresa1,empresa2,entidad3
 ```
-
-### Cambiar la frecuencia del cron
-Edita `.github/workflows/main.yml`:
-```yaml
-- cron: '*/15 * * * *'   # Cada 15 minutos
-- cron: '0 * * * *'      # Cada hora
-- cron: '0 9,21 * * *'   # A las 9:00 y 21:00 UTC
-```
-
----
-
-## Requisitos
-
-- Python 3.11+
-- Cuenta OpenAI con créditos disponibles
-- Bot de Telegram creado vía @BotFather

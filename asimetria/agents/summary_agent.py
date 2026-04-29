@@ -79,7 +79,7 @@ class SummaryAgent:
 
     def generate_ranked_summary(self) -> dict | None:
         """
-        Lee el log del día y genera un resumen rankeado con GPT-4o-mini.
+        Lee el log del día y genera un resumen rankeado con Gemini.
         Devuelve None si no hay oportunidades registradas.
         """
         log = self._load_log()
