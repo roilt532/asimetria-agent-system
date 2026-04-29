@@ -5,6 +5,7 @@ from agents.scraping_agent import ScrapingAgent
 from agents.analysis_agent import AnalysisAgent
 from agents.filter_agent import EthicalFilterAgent
 from agents.alert_agent import AlertAgent
+from agents.summary_agent import SummaryAgent
 
 logging.basicConfig(
     level=logging.INFO,
@@ -28,6 +29,7 @@ def run_pipeline() -> None:
     analyzer = AnalysisAgent(settings)
     filter_agent = EthicalFilterAgent(settings)
     alert_agent = AlertAgent(settings)
+    summary_agent = SummaryAgent(settings)
 
     # ─── Paso 1: Scraping ────────────────────────────────────────
     news_items = scraper.fetch_news()
@@ -74,10 +76,11 @@ def run_pipeline() -> None:
             logger.info(f"  Rechazada (filtro etico): {decision.reason}")
             continue
 
-        # Enviar alerta
+        # Enviar alerta y registrar en log diario
         sent = alert_agent.send_opportunity(result)
         if sent:
             total_sent += 1
+            summary_agent.append_opportunity(result)
 
     # ─── Resumen final ────────────────────────────────────────────
     logger.info(SEPARATOR)

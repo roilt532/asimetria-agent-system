@@ -1,0 +1,51 @@
+name: Asimetria — Resumen Diario
+
+on:
+  schedule:
+    # Se ejecuta cada día a las 20:00 UTC (22:00 España peninsular)
+    - cron: '0 20 * * *'
+  # Permite lanzarlo manualmente en cualquier momento
+  workflow_dispatch:
+
+jobs:
+  daily-summary:
+    name: Generar y Enviar Resumen Diario
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout del repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Instalar dependencias
+        run: pip install -r requirements.txt
+
+      # Restaurar el log diario acumulado durante el día
+      - name: Restaurar log diario acumulado
+        uses: actions/cache@v4
+        with:
+          path: data/daily_opportunities.json
+          # Clave de restore: compatible con lo que guarda main.yml
+          key: asimetria-daily-summary-${{ github.run_id }}
+          restore-keys: asimetria-daily-log-
+
+      - name: Generar y enviar resumen diario rankeado
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          OPENAI_MODEL: ${{ vars.OPENAI_MODEL || 'gpt-4o-mini' }}
+        run: python daily_summary.py
+
+      # Guardar log limpio (vacío) para que el día siguiente arranque desde cero
+      - name: Guardar log reiniciado en cache
+        uses: actions/cache@v4
+        with:
+          path: data/daily_opportunities.json
+          key: asimetria-daily-log-${{ github.run_id }}-reset

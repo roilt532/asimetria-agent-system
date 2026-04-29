@@ -46,6 +46,19 @@ SUMMARY_TEMPLATE = (
     "<i>Ejecutado: {timestamp} UTC</i>"
 )
 
+SENTIMENT_ICON = {
+    "alcista": "[SUBE]",
+    "bajista": "[BAJA]",
+    "mixto": "[~]",
+    "neutral": "[=]",
+}
+
+DIRECTION_LABEL_ES = {
+    "bullish": "ALCISTA",
+    "bearish": "BAJISTA",
+    "neutral": "NEUTRAL",
+}
+
 
 class AlertAgent:
     def __init__(self, settings: Settings):
@@ -76,6 +89,56 @@ class AlertAgent:
             opportunities=opportunities,
             timestamp=datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M"),
         )
+        return self._send(message)
+
+    def send_daily_summary(self, summary: dict) -> bool:
+        """
+        Envía el resumen diario rankeado a Telegram.
+        `summary` es el dict devuelto por SummaryAgent.generate_ranked_summary().
+        """
+        date = summary.get("date", "N/A")
+        sentiment = summary.get("market_sentiment", "neutral").lower()
+        total_signals = summary.get("total_signals", 0)
+        summary_text = summary.get("summary_text", "")
+        ranked = summary.get("ranked_opportunities", [])
+
+        lines = [
+            "<b>RESUMEN DIARIO — ASIMETRIA</b>",
+            "",
+            f"<b>Fecha:</b> {date}",
+            f"<b>Sentimiento:</b> {SENTIMENT_ICON.get(sentiment, '[~]')} {sentiment.upper()}",
+            f"<b>Señales del día:</b> {total_signals}",
+            "",
+            "<b>RANKING DE OPORTUNIDADES</b>",
+        ]
+
+        for opp in ranked[:5]:
+            rank = opp.get("rank", "?")
+            asset = opp.get("asset", "N/A")
+            direction = opp.get("direction", "neutral")
+            conf = int(opp.get("avg_confidence", 0) * 100)
+            count = opp.get("signal_count", 1)
+            catalysts = opp.get("key_catalysts", [])
+            headline = opp.get("top_headline", "")
+            dir_label = DIRECTION_LABEL_ES.get(direction, "NEUTRAL")
+
+            lines.append("")
+            lines.append(f"<b>#{rank} — {asset}</b> | {dir_label} | {conf}% | {count} señal(es)")
+            if headline:
+                lines.append(f"<i>{headline[:120]}</i>")
+            for cat in catalysts[:2]:
+                lines.append(f"  • {cat}")
+
+        if summary_text:
+            lines += ["", "<b>SINTESIS EJECUTIVA</b>", summary_text]
+
+        lines += ["", "<i>Sistema Asimetria — Generado automáticamente</i>"]
+
+        # Telegram limita a 4096 chars; truncar si es necesario
+        message = "\n".join(lines)
+        if len(message) > 4000:
+            message = message[:3990] + "\n<i>[truncado]</i>"
+
         return self._send(message)
 
     def _send(self, message: str) -> bool:

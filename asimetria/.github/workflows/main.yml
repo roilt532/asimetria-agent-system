@@ -35,9 +35,17 @@ jobs:
       - name: Instalar dependencias
         run: pip install -r requirements.txt
 
+      # Restaurar el log diario del run anterior (si existe)
+      - name: Restaurar log diario acumulado
+        uses: actions/cache@v4
+        with:
+          path: data/daily_opportunities.json
+          key: asimetria-daily-log-${{ github.run_id }}
+          restore-keys: asimetria-daily-log-
+
       - name: Ejecutar Pipeline Asimetria
         env:
-          # Secrets (definir en Settings > Secrets and variables > Actions > Secrets)
+          # Secrets (Settings > Secrets and variables > Actions > Secrets)
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}

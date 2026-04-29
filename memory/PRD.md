@@ -43,11 +43,14 @@ asimetria/
 - [x] ScrapingAgent: 9 fuentes RSS financieras/crypto gratuitas + yfinance
 - [x] AnalysisAgent: GPT-4o-mini con JSON mode para detección de señales asimétricas
 - [x] EthicalFilterAgent: Stage 1 (blocklist hardcoded) + Stage 2 (evaluación LLM)
-- [x] AlertAgent: Telegram Bot API con mensajes HTML formateados
-- [x] main.py: Pipeline orquestado con logging detallado
-- [x] GitHub Actions: Cron job cada 30 minutos con secrets configurables
+- [x] AlertAgent: Telegram Bot API con mensajes HTML formateados + send_daily_summary()
+- [x] SummaryAgent: Ranking diario consolidado (append + generate_ranked_summary + clear_log)
+- [x] main.py: Pipeline orquestado con logging detallado + integración SummaryAgent
+- [x] daily_summary.py: Script independiente para el resumen diario
+- [x] GitHub Actions main.yml: Cron cada 30 min + cache para persistir log diario
+- [x] GitHub Actions daily_summary.yml: Cron diario 20:00 UTC (22:00 España)
 - [x] .env.example + README con guía de setup completa
-- [x] Validación: 13/13 archivos, sintaxis OK, RSS live OK, yfinance live OK
+- [x] Validación: 17 archivos, 908 líneas, sintaxis OK, RSS live OK, yfinance live OK, tests de lógica OK
 
 ## Variables de Entorno Requeridas
 - OPENAI_API_KEY
